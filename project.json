@@ -39,7 +39,7 @@
       "version": "1.0.0-preview2-update1",
       "type": "build"
     },
-    "Microsoft.AspNetCore.WebSockets.Server": "1.0.0"
+    "Microsoft.AspNetCore.WebSockets": "1.0.0"
   },
 
   "tools": {

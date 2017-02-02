@@ -8,7 +8,7 @@ namespace Lines.Controllers
 {
     public class CanvasController : Controller
     {
-        public IActionResult Index()
+        public IActionResult Server()
         {
             return View();
         }

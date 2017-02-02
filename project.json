@@ -1,5 +1,5 @@
 {
-  "userSecretsId": "aspnet-WebApplication-0799fe3e-6eaf-4c5f-b40e-7c6bfd5dfa9a",
+  "userSecretsId": "aspnet-Lines-0799fe3e-6eaf-4c5f-b40e-7c6bfd5dfa9a",
 
   "dependencies": {
     "Microsoft.NETCore.App": {
@@ -38,7 +38,8 @@
     "Microsoft.VisualStudio.Web.CodeGenerators.Mvc": {
       "version": "1.0.0-preview2-update1",
       "type": "build"
-    }
+    },
+    "Microsoft.AspNetCore.WebSockets.Server": "1.0.0"
   },
 
   "tools": {

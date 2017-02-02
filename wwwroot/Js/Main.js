@@ -1,6 +1,6 @@
 "use strict";
 
-var host = window.location.host;
+var host = window.location.host + ':63002';
 
 var mouseDown = false;
 var mouseWasDown = true;
@@ -113,6 +113,7 @@ var attachKeyListener = function () {
     document.body.onkeypress = function (e) {
         if (typeof keypresses[e.keyCode] != "undefined") {
 
+            keypresses[e.keyCode]();
             keypresses[e.keyCode]();
         }
     }
@@ -293,9 +294,11 @@ var handleMouse = function () {
             players[color].push([]);
         }
 
-        players[color][players[color].length - 1].push(mousePos);
+        var offsetPos = [mousePos[0]+offsetX, mousePos[1]+offsetY];
 
-        send(color, mousePos[0], mousePos[1], !mouseWasDown);
+        players[color][players[color].length - 1].push(offsetPos);
+
+        send(color, offsetPos[0], offsetPos[1], !mouseWasDown);
 
         mouseWasDown = true;
     } else {

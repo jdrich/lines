@@ -22,14 +22,16 @@ namespace Lines.Canvas
 
         protected static Regex messageRegex = new Regex(@"\#[0-9a-f]{6}\|\d+\|\d+\|(0|1)");
 
-        protected static List<WebSocket> connections = new List<WebSocket>();
+        protected static List<Server> connections = new List<Server>();
         
         protected WebSocket socket;
+        
+        protected string player;
         
         protected Server(WebSocket socket) {
             this.socket = socket;
             
-            connections.Add(socket);
+            connections.Add(this);
         }
         
         static async Task Acceptor(HttpContext http, Func<Task> next)
@@ -58,7 +60,7 @@ namespace Lines.Canvas
             var buffer = new byte[1024];
             var receive = new ArraySegment<byte>(buffer);
         
-            while (this.socket.State == WebSocketState.Open)
+            while (socket.State == WebSocketState.Open)
             {
                 var incoming = await this.socket.ReceiveAsync(receive, CancellationToken.None);
                 
@@ -75,30 +77,13 @@ namespace Lines.Canvas
             await this.socket.SendAsync(outgoing, WebSocketMessageType.Text, true, CancellationToken.None);
         }
         
-        async protected Task Broadcast(string message) {
-            var bytes = Encoding.UTF8.GetBytes(message);
-            var outgoing = new ArraySegment<byte>(bytes, 0, bytes.Length);
-            
-            var sends = connections.Select(socket => { 
-                if(socket.State == WebSocketState.Open) {
-                    return this.socket.SendAsync(outgoing, WebSocketMessageType.Text, true, CancellationToken.None);
-                } else {
-                    return Task.FromResult(0);
-                }
-            });
-            
-            await Task.WhenAll(sends);
-        }
-                
-        async protected void Clear(string player)
+        protected void Clear()
         {
             messages = new List<string>();
             playerLastIndex = new Dictionary<string, int>();
-
-            await Broadcast(player + '>' + "clear");
         }
 
-        async protected void Receive(string data) 
+        protected void Receive(string data) 
         {
             string[] chunks = data.Split('>');
             
@@ -106,47 +91,40 @@ namespace Lines.Canvas
                 return;
             }
             
-            string player = chunks[0];
+            player = chunks[0];
+            
             string drawMessage = chunks[1];
 
             if(drawMessage == "clear")
             {
-                Clear(player);
-
-                return;
+                Clear();
+                messages.Add(data);
             }
 
-            if(drawMessage == "load")
-            {
-                Load(player); 
-
-                return; 
-            }
-                    
-            if(messageRegex.IsMatch(drawMessage.ToLower()))
+            if(messageRegex.IsMatch(drawMessage.ToLower()) || drawMessage == "load")
             {
                 messages.Add(data);
-
-                string color = drawMessage.Split('|').First();
-                                 
-                await Broadcast(data);
-
-                Parallel.ForEach(playerLastIndex.Values, v => { v++; });
             }
+                      
+            Task.WhenAll(connections.Select(connection => connection.Sync()));      
         }
 
-        async protected void Load(String player)
+        async protected Task Sync()
         {
+            if(socket.State != WebSocketState.Open) {
+                return;
+            }
+            
             if (!playerLastIndex.Keys.Contains(player))
             {
                 playerLastIndex[player] = 0;
+            }
+                
+            while (playerLastIndex[player] < messages.Count())
+            {
+                await Send(messages[playerLastIndex[player]]);
 
-                while (playerLastIndex[player] < messages.Count())
-                {
-                    await Send(messages[playerLastIndex[player]]);
-
-                    playerLastIndex[player]++;
-                }
+                playerLastIndex[player]++;
             }
         }
     }

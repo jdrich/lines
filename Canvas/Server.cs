@@ -11,30 +11,39 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net.WebSockets;
+using Microsoft.Extensions.Logging;
 
-namespace Lines.Canvas
+namespace Rooms.Canvas
 {
     public class Server
     {
-        protected static List<string> messages = new List<string>();
-
-        protected static Dictionary<string, int> playerLastIndex = new Dictionary<string, int>();
-
-        protected static Regex messageRegex = new Regex(@"\#[0-9a-f]{6}\|\d+\|\d+\|(0|1)");
-
-        protected static List<Server> connections = new List<Server>();
+        protected static Random seed = new Random();
         
-        protected WebSocket socket;
+        protected List<Room> rooms;
         
-        protected string player;
+        public List<Room> Rooms { get { return rooms; } }
         
-        protected Server(WebSocket socket) {
-            this.socket = socket;
-            
-            connections.Add(this);
+        public Server() {
+            rooms = new List<Room>() {
+                new Room(),
+                new Room(),
+                new Room(),
+                new Room(),
+                new Room(),
+                new Room(),
+                new Room(),
+                new Room(),
+                new Room(),
+                new Room()
+            };
         }
         
-        static async Task Acceptor(HttpContext http, Func<Task> next)
+        public static void Map(IApplicationBuilder app) {
+            app.UseWebSockets();
+            app.Use((new Server()).Listen);
+        }
+        
+        public async Task Listen(HttpContext http, Func<Task> next)
         {
             if (!http.WebSockets.IsWebSocketRequest) {
                 await http.Response.WriteAsync("Not a WebSocket request.");
@@ -45,87 +54,27 @@ namespace Lines.Canvas
             var socket = await http.WebSockets.AcceptWebSocketAsync();
             
             if(socket != null && socket.State == WebSocketState.Open) {
-                var server = new Server(socket);
-            
-                await server.HandleSocket();
-            }
-        }
-
-        public static void Map(IApplicationBuilder app) {
-            app.UseWebSockets();
-            app.Use(Acceptor);
-        }
-        
-        async public Task HandleSocket() {
-            var buffer = new byte[1024];
-            var receive = new ArraySegment<byte>(buffer);
-        
-            while (socket.State == WebSocketState.Open)
-            {
-                var incoming = await this.socket.ReceiveAsync(receive, CancellationToken.None);
+                var player = new Player(this, socket, randomRoom());
                 
-                var recd = receive.Array;
-                Array.Resize(ref recd, incoming.Count);
-                Receive(Encoding.UTF8.GetString(recd));
+                var waits = new List<Task>() {
+                    player.Send(),
+                    player.Receive()
+                };
+            
+                await Task.WhenAll(waits);
             }
         }
         
-        async protected Task Send(string message) {
-            var bytes = Encoding.UTF8.GetBytes(message);
-            var outgoing = new ArraySegment<byte>(bytes, 0, bytes.Length);
-            
-            await this.socket.SendAsync(outgoing, WebSocketMessageType.Text, true, CancellationToken.None);
+        public Room randomRoom() {
+            return rooms[seed.Next(rooms.Count())];
         }
         
-        protected void Clear()
-        {
-            messages = new List<string>();
-            playerLastIndex = new Dictionary<string, int>();
+        public bool hasRoom(int roomIndex) {
+            return roomIndex < rooms.Count();
         }
-
-        protected void Receive(string data) 
-        {
-            string[] chunks = data.Split('>');
-            
-            if(chunks.Count() < 2) {
-                return;
-            }
-            
-            player = chunks[0];
-            
-            string drawMessage = chunks[1];
-
-            if(drawMessage == "clear")
-            {
-                Clear();
-                messages.Add(data);
-            }
-
-            if(messageRegex.IsMatch(drawMessage.ToLower()) || drawMessage == "load")
-            {
-                messages.Add(data);
-            }
-                      
-            Task.WhenAll(connections.Select(connection => connection.Sync()));      
-        }
-
-        async protected Task Sync()
-        {
-            if(socket.State != WebSocketState.Open) {
-                return;
-            }
-            
-            if (!playerLastIndex.Keys.Contains(player))
-            {
-                playerLastIndex[player] = 0;
-            }
-                
-            while (playerLastIndex[player] < messages.Count())
-            {
-                await Send(messages[playerLastIndex[player]]);
-
-                playerLastIndex[player]++;
-            }
+        
+        public Room getRoom(int roomIndex) {
+            return rooms[roomIndex];
         }
     }
 }

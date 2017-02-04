@@ -1,6 +1,6 @@
 "use strict";
 
-var host = window.location.host + ':63002';
+var host = window.location.host + ':14150';
 
 var mouseDown = false;
 var mouseWasDown = true;
@@ -17,6 +17,8 @@ var socketOpen = false;
 
 var drawGrid = false;
 
+var room;
+
 var player;
 
 // color -> segment -> point
@@ -29,7 +31,7 @@ var drawHud = function (context) {
     context.font = "10px Courier New";
     
     // Draw offset
-    context.fillText(offsetX + " x " + offsetY, 10, 10);
+    context.fillText(offsetX + " x " + offsetY, 10, 20);
 
     // Draw color
     context.fillStyle = color;
@@ -39,6 +41,13 @@ var drawHud = function (context) {
     context.fillStyle = socketOpen ? '#00ff00' : '#ff0000';
     context.fillText(socketOpen ? ":)" : ":(", canvas.width - 20, canvas.height - 20);
 
+    // Draw room 
+    if(typeof room != "undefined") {
+        context.fillStyle = "#000000";
+        context.fillText(room, canvas.width - 20, 20);
+    }
+
+    // Draw box
     context.beginPath();
     context.strokeStyle = '#000000';
     context.rect(0, 0, canvas.width - context.lineWidth, canvas.height - context.lineWidth);
@@ -69,8 +78,12 @@ var getHex = function (length) {
     return hex;
 }
 
+var moveTo = function(room) {
+    socket.send(player + ">move>" + room);
+};
+
 var clear = function () {
-    socket.send(player + ">clear");
+    socket.send(player + ">clear>");
 
     clearLocal();
 }
@@ -82,7 +95,7 @@ var clearLocal = function () {
 }
 
 var attachKeyListener = function () {
-    var keydowns = {
+    var keyups = {
         // space
         32: function () { clear(); },
         // g
@@ -111,16 +124,22 @@ var attachKeyListener = function () {
     };
 
     document.body.onkeypress = function (e) {
-        if (typeof keypresses[e.keyCode] != "undefined") {
-
-            keypresses[e.keyCode]();
-            keypresses[e.keyCode]();
+        
+        var keyCode = e.keyCode || e.which;
+        
+        if (typeof keypresses[keyCode] != "undefined") {
+            keypresses[keyCode]();
+            keypresses[keyCode]();
         }
     }
 
     document.body.onkeyup = function (e) {
-        if (typeof keydowns[e.keyCode] != "undefined") {
-            keydowns[e.keyCode]();
+        if (typeof keyups[e.keyCode] != "undefined") {
+            keyups[e.keyCode]();
+        }
+        
+        if(e.keyCode >= 48 && e.keyCode <= 57) {
+            moveTo(e.keyCode - 48);
         }
     }
 };
@@ -205,7 +224,7 @@ var attachMouseListeners = function (canvas) {
 
 var send = function (color, x, y, isNew) {
     if (socketOpen) {
-        var message = player + '>' + [color, Math.round(x), Math.round(y), isNew ? 1 : 0].join('|');
+        var message = player + '>draw>' + [color, Math.round(x), Math.round(y), isNew ? 1 : 0].join('|');
 
         socket.send(message);
     }
@@ -215,24 +234,27 @@ var receive = function (data) {
     var chunks = data.split('>');
     var recPlayer = chunks[0];
     
-    data = chunks[1];
+    var action = chunks[1];
+    var body = chunks[2];
 
-    if (data == "clear") {
+    if (recPlayer == player && action == "moved") {
+        room = chunks[2];
+        
+        clearLocal();
+    }
+
+    if (action == "clear") {
         clearLocal();
 
         return;
     }
 
-    var chunks = data.split('|');
+    var chunks = body.split('|');
 
     var playerColor = chunks[0];
     var x = chunks[1];
     var y = chunks[2];
     var isNew = chunks[3] == 1 ? true : false;
-
-    if (recPlayer == player) {
-        return;
-    }
 
     if (typeof players[playerColor] == "undefined") {
         players[playerColor] = [];
@@ -250,7 +272,7 @@ var openSocket = function () {
     socket.onopen = function (event) {
         socketOpen = true;
 
-        socket.send(player + '>load');
+        socket.send(player + '>load>');
     };
 
     socket.onclose = function (event) {

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Lines.Controllers
+namespace Rooms.Controllers
 {
     public class MainController : Controller
     {

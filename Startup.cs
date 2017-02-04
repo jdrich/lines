@@ -8,7 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace Lines
+namespace Rooms
 {
     public class Startup
     {
@@ -60,8 +60,6 @@ namespace Lines
             app.UseStaticFiles();
 
             //app.UseIdentity();
-
-            // Add external authentication middleware below. To configure them please see https://go.microsoft.com/fwlink/?LinkID=532715
 
             app.Map("/Canvas/Server", Canvas.Server.Map);
 

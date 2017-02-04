@@ -1,3 +1,3 @@
-# Lines
+# Rooms
 
-A neat toy. Multi-user websockets server running ASP.NET Core. 
+Multi-user drawing thing.

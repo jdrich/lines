@@ -1,2 +1,2 @@
 #!/bin/sh
-ASPNETCORE_URLS="https://*:63002" dotnet run
+ASPNETCORE_URLS="https://*:14150" dotnet run
